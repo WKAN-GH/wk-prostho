@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WK Patient Data Collection: Html Master for WK</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --pri:#0a7e7e;--pri-l:#e6f7f7;--acc:#d97706;--acc-l:#fffbeb;
+  --n0:#fff;--n50:#f8fafc;--n100:#f1f5f9;--n200:#e2e8f0;
+  --n400:#94a3b8;--n500:#64748b;--n700:#334155;--n800:#1e293b;
+  --danger:#ef4444;--success:#22c55e;
+  --r:8px;--shadow:0 2px 8px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--n50);color:var(--n800);font-size:14px}
+/* HEADER */
+.hdr{background:linear-gradient(135deg,#075f5f,#0d9e9e);color:#fff;padding:14px 24px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.hdr-title{font-size:18px;font-weight:700}
+.hdr-sub{font-size:12px;opacity:.8}
+.hdr-actions{display:flex;gap:8px;flex-wrap:wrap}
+/* BUTTONS */
+button{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;
+  border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:600;transition:all .15s}
+.btn-import{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)!important}
+.btn-import:hover{background:rgba(255,255,255,.35)}
+.btn-csv{background:#22c55e;color:#fff}
+.btn-csv:hover{background:#16a34a}
+.btn-clear-all{background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.4)!important}
+.btn-clear-all:hover{background:rgba(239,68,68,.4)}
+/* STATS BAR */
+.stats{background:var(--n0);border-bottom:1px solid var(--n200);padding:10px 24px;
+  display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.stat{display:flex;flex-direction:column;align-items:center}
+.stat-val{font-size:22px;font-weight:800;color:var(--pri)}
+.stat-lbl{font-size:11px;color:var(--n500);text-transform:uppercase;letter-spacing:.04em}
+/* DROP ZONE */
+.drop-zone{margin:20px 24px;border:2px dashed var(--n400);border-radius:12px;
+  padding:32px;text-align:center;background:var(--n0);transition:all .2s;cursor:pointer}
+.drop-zone.drag{border-color:var(--pri);background:var(--pri-l)}
+.drop-zone p{color:var(--n500);margin-top:8px;font-size:13px}
+.drop-zone strong{color:var(--pri);font-size:15px}
+/* TABS */
+.tab-bar{display:flex;gap:2px;padding:0 24px;background:var(--n0);
+  border-bottom:2px solid var(--n200);overflow-x:auto;flex-wrap:nowrap}
+.tab-btn{padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;
+  font-weight:500;color:var(--n500);white-space:nowrap;border-bottom:3px solid transparent;
+  margin-bottom:-2px;transition:all .15s}
+.tab-btn:hover{color:var(--pri)}
+.tab-btn.active{color:var(--pri);font-weight:700;border-bottom-color:var(--pri)}
+/* CONTENT */
+.content{padding:0 24px 40px}
+.tab-panel{display:none;margin-top:16px}
+.tab-panel.active{display:block}
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--n200);
+  box-shadow:var(--shadow);margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:600px}
+thead th{background:var(--pri);color:#fff;padding:8px 10px;text-align:left;
+  font-weight:600;font-size:11px;white-space:nowrap;position:sticky;top:0}
+tbody tr:nth-child(even){background:var(--n50)}
+tbody tr:hover{background:var(--pri-l)}
+tbody td{padding:6px 10px;border-bottom:1px solid var(--n200);white-space:nowrap;
+  max-width:220px;overflow:hidden;text-overflow:ellipsis}
+tbody td:first-child{font-weight:700;color:var(--pri);white-space:nowrap}
+.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.badge-ok{background:#dcfce7;color:#166534}
+.badge-warn{background:#fef9c3;color:#713f12}
+/* empty state */
+.empty{text-align:center;padding:48px;color:var(--n400)}
+.empty svg{width:48px;height:48px;fill:var(--n200);margin-bottom:12px}
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;padding:12px 20px;border-radius:var(--r);
+  color:#fff;font-weight:600;font-size:13px;opacity:0;transform:translateY(20px);
+  transition:all .3s;pointer-events:none;z-index:999}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.success{background:#22c55e}
+.toast.error{background:#ef4444}
+.toast.info{background:#3b82f6}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div>
+    <div class="hdr-title">WK Patient Data Collection: Html Master for WK</div>
+    <div class="hdr-sub">Department of Prosthodontics · Faculty of Dentistry · Mahidol University</div>
+  </div>
+  <div class="hdr-actions">
+    <button class="btn-import" onclick="document.getElementById('fileInput').click()">
+      ＋ Import JSON Files
+    </button>
+    <button class="btn-csv" onclick="exportCSV()">
+      ↓ Export CSV (ทุก field)
+    </button>
+    <button class="btn-clear-all" onclick="clearAll()">
+      ✕ Clear All
+    </button>
+    <input type="file" id="fileInput" accept=".json" multiple style="display:none" onchange="importFiles(event)">
+  </div>
+</header>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat"><div class="stat-val" id="statTotal">0</div><div class="stat-lbl">คนไข้ทั้งหมด</div></div>
+  <div class="stat"><div class="stat-val" id="statFiles">0</div><div class="stat-lbl">ไฟล์ที่ import</div></div>
+  <div class="stat"><div class="stat-val" id="statStudents">0</div><div class="stat-lbl">นักศึกษา</div></div>
+  <div class="stat"><div class="stat-val" id="statPDI1">—</div><div class="stat-lbl">PDI Complete (most common)</div></div>
+  <div style="margin-left:auto;font-size:12px;color:var(--n500)" id="lastImport"></div>
+</div>
+
+<!-- DROP ZONE -->
+<div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+     ondragover="ev.preventDefault();this.classList.add('drag')"
+     ondragleave="this.classList.remove('drag')"
+     ondrop="onDrop(event)">
+  <strong>📂 คลิกหรือลากไฟล์ JSON มาวางที่นี่</strong>
+  <p>เลือกได้หลายไฟล์พร้อมกัน · ข้อมูลจะถูกเพิ่มต่อกัน ไม่ทับของเดิม</p>
+</div>
+
+<!-- TABS -->
+<nav class="tab-bar" id="tabBar">
+  <button class="tab-btn active" data-tab="tabOverview">📋 Overview</button>
+  <button class="tab-btn" data-tab="tabDemo">👤 Demographics</button>
+  <button class="tab-btn" data-tab="tabMedical">🏥 Medical History</button>
+  <button class="tab-btn" data-tab="tabIntraoral">🦷 Intraoral (C)</button>
+  <button class="tab-btn" data-tab="tabOcclusal">⚙️ Occlusal (D)</button>
+  <button class="tab-btn" data-tab="tabDental">📊 Dental/PSR (E)</button>
+  <button class="tab-btn" data-tab="tabPerio">🔬 Perio Summary (F)</button>
+  <button class="tab-btn" data-tab="tabDiagnosis">📝 Diagnosis (H)</button>
+  <button class="tab-btn" data-tab="tabTreatment">💊 Treatment (I)</button>
+  <button class="tab-btn" data-tab="tabTeeth">🦷 Tooth Status</button>
+</nav>
+
+<div class="content">
+
+  <!-- OVERVIEW -->
+  <div class="tab-panel active" id="tabOverview">
+    <div class="tbl-wrap">
+      <table id="tblOverview">
+        <thead><tr>
+          <th>#</th><th>Research_ID</th><th>Patient_Name</th><th>Age</th><th>Gender</th>
+          <th>Date</th><th>Chief_Complaint</th><th>PDI_Complete</th><th>PDI_Partial</th>
+          <th>PDI_Dentate</th><th>Student</th><th>File</th>
+        </tr></thead>
+        <tbody id="bodyOverview"><tr><td colspan="12" class="empty">ยังไม่มีข้อมูล — กด Import JSON ด้านบน</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DEMOGRAPHICS -->
+  <div class="tab-panel" id="tabDemo">
+    <div class="tbl-wrap"><table id="tblDemo">
+      <thead><tr>
+        <th>Research_ID</th><th>PT_No</th><th>HN</th><th>DOB</th><th>Age</th><th>Gender</th>
+        <th>Occupation</th><th>Religion</th><th>Race</th><th>Nationality</th>
+        <th>Marital</th><th>Pay_Source</th><th>Premed</th><th>BP</th><th>Pulse</th>
+        <th>Weight</th><th>Height</th>
+      </tr></thead>
+      <tbody id="bodyDemo"><tr><td colspan="17" class="empty">ยังไม่มีข้อมูล</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- MEDICAL HISTORY -->
+  <div class="tab-panel" id="tabMedical">
+    <div class="tbl-wrap"><table id="tblMedical">
+      <thead><tr>
+        <th>Research_ID</th><th>Chronic_Diseases</th><th>Major_Illness</th><th>Medications</th>
+        <th>Allergies</th><th>Family_History</th>
+        <th>ROS_Cardio</th><th>ROS_Hemato</th><th>ROS_Endo</th><th>ROS_Neuro</th>
+        <th>ROS_GI</th><th>ROS_Pulm</th><th>ROS_Psych</th><th>ROS_Urinary</th>
+        <th>Med_Consult</th><th>Facial_Appearance</th><th>Facial_Profile</th>
+      </tr></thead>
+      <tbody id="bodyMedical"><tr><td colspan="17" class="empty">ยังไม่มีข้อมูล</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- INTRAORAL -->
+  <div class="tab-panel" id="tabIntraoral">
+    <div class="tbl-wrap"><table id="tblIntraoral">
+      <thead><tr>
+        <th>Research_ID</th><th>Oral_Hygiene</th>
+        <th>Max_SoftTissue</th><th>Max_Flabby</th><th>Max_ArchForm</th><th>Max_Vault</th>
+        <th>Max_RidgeShape</th><th>Max_DBA</th><th>Max_Undercut</th><th>Max_Exostosis</th><th>Max_Torus</th>
+        <th>Mand_SoftTissue</th><th>Mand_Flabby</th><th>Mand_ArchForm</th>
+        <th>Mand_RidgeShape</th><th>Mand_BoneHeight</th><th>Mand_DBA</th>
+        <th>Mand_Undercut</th><th>Mand_Exostosis</th><th>Mand_Torus</th>
+        <th>Ridge_Rel</th><th>Inter_Ridge</th><th>Tongue</th><th>Saliva</th>
+        <th>Gag_Reflex</th><th>Mental_Attitude</th>
+      </tr></thead>
+      <tbody id="bodyIntraoral"><tr><td colspan="26" class="empty">ยังไม่มีข้อมูล</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- OCCLUSAL -->
+  <div class="tab-panel" id="tabOcclusal">
+    <div class="tbl-wrap"><table id="tblOcclusal">
+      <thead><tr>
+        <th>Research_ID</th><th>Max_Midline_mm</th><th>Mand_Midline_mm</th>
+        <th>Vertical_Overlap</th><th>Horizontal_Overlap</th><th>Angles_Class</th>
+        <th>Open_Bite</th><th>Crossbite</th><th>Occ_Scheme_R</th><th>Occ_Scheme_L</th>
+        <th>RCP_ICP_AP</th><th>RCP_ICP_Lat</th>
+      </tr></thead>
+      <tbody id="bodyOcclusal"><tr><td colspan="12" class="empty">ยังไม่มีข้อมูล</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- DENTAL / PSR -->
+  <div class="tab-panel" id="tabDental">
+    <div class="tbl-wrap"><table id="tblDental">
+      <thead><tr>
+        <th>Research_ID</th>
+        <th>PSR_UR</th><th>PSR_UA</th><th>PSR_UL</th>
+        <th>PSR_LR</th><th>PSR_LA</th><th>PSR_LL</th>
+        <th>Caries_Risk</th><th>Dental_Notes</th>
+        <th>Radio_Bone_Level</th><th>Radio_Bone_Pattern</th>
+      </tr></thead>
+      <tbody id="bodyDental"><tr><td colspan="11" class="empty">ยังไม่มีข้อมูล</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- PERIO SUMMARY -->
+  <div class="tab-panel" id="tabPerio">
+    <div class="tbl-wrap"><table id="tblPerio">
+      <thead><tr>
+        <th>Research_ID</th><th>Age</th><th>Gender</th>
+        <th>Perio_BOP_%</th><th>Perio_Mean_PD_mm</th><th>Perio_Max_PD_mm</th>
+        <th>Perio_Sites_gt4mm_%</th><th>Sites_recorded</th>
+        <th>PSR_UR</th><th>PSR_UA</th><th>PSR_UL</th>
+        <th>PSR_LR</th><th>PSR_LA</th><th>PSR_LL</th>
+        <th>Perio_Dx</th>
+      </tr></thead>
+      <tbody id="bodyPerio"><tr><td colspan="15" class="empty">ยังไม่มีข้อมูล</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- DIAGNOSIS -->
+  <div class="tab-panel" id="tabDiagnosis">
+    <div class="tbl-wrap"><table id="tblDiagnosis">
+      <thead><tr>
+        <th>Research_ID</th><th>Etiology</th><th>Dx_Extraoral</th><th>Dx_Intraoral</th>
+        <th>Dx_Dental</th><th>Perio_Dx</th><th>Problem_Synopsis</th>
+        <th>Preprosthetic_Tx</th>
+        <th>PDI_Complete</th><th>PDI_Partial</th><th>PDI_Dentate</th>
+      </tr></thead>
+      <tbody id="bodyDiagnosis"><tr><td colspan="11" class="empty">ยังไม่มีข้อมูล</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- TREATMENT -->
+  <div class="tab-panel" id="tabTreatment">
+    <div class="tbl-wrap"><table id="tblTreatment">
+      <thead><tr>
+        <th>Research_ID</th><th>Approx_Visits</th><th>Approx_Fee_Baht</th>
+        <th>Student_Name</th><th>Instructor_Name</th><th>Date_Record</th>
+      </tr></thead>
+      <tbody id="bodyTreatment"><tr><td colspan="6" class="empty">ยังไม่มีข้อมูล</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- TOOTH STATUS -->
+  <div class="tab-panel" id="tabTeeth">
+    <div class="tbl-wrap"><table id="tblTeeth">
+      <thead><tr id="teethHdr"></tr></thead>
+      <tbody id="bodyTeeth"><tr><td colspan="34" class="empty">ยังไม่มีข้อมูล</td></tr></tbody>
+    </table></div>
+  </div>
+
+</div><!-- /content -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────
+let patients = [];  // array of parsed JSON objects
+const STORAGE_KEY = 'masterPatients_v1';
+const UPPER = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28];
+const LOWER = [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
+const ALL_TEETH = [...UPPER,...LOWER];
+
+// ── HELPERS ───────────────────────────────────────────────────────
+const g  = (d,k)   => d[k]||'';
+const gr = (d,n)   => d['radio_'+n]||'';
+const gc = (d,ids) => ids.filter(([id])=>d['check_'+id]).map(([,l])=>l).join('; ');
+const rid= (d)     => d['a_researchId']||d['researchId']||d['__research_id__']||'(ไม่ระบุ)';
+
+function periSummary(d) {
+  const pd = d._perioData||{};
+  const pfx=['pMaxB','pMaxP','pMndB','pMndL'], sides=['MB','B','DB'];
+  let bt=0,bp=0,pvals=[];
+  pfx.forEach(pf=>{
+    const teeth=pf.startsWith('pMax')?UPPER:LOWER;
+    teeth.forEach(t=>sides.forEach(s=>{
+      const bk=`perio_${pf}_BOP_${t}_${s}`;
+      bt++; if(pd[bk])bp++;
+      const pk=`perio_${pf}_PD_${t}_${s}`;
+      const v=parseFloat(pd[pk]); if(!isNaN(v))pvals.push(v);
+    }));
+  });
+  return {
+    bop:  bt?+(bp/bt*100).toFixed(1):'',
+    mean: pvals.length?+(pvals.reduce((a,b)=>a+b,0)/pvals.length).toFixed(2):'',
+    max:  pvals.length?Math.max(...pvals):'',
+    gt4:  pvals.length?+(pvals.filter(v=>v>4).length/pvals.length*100).toFixed(1):'',
+    n:    pvals.length
+  };
+}
+
+function toothStatus(d, t){
+  const s = (d._toothStatuses||{})[String(t)];
+  return s||'';
+}
+
+// ── TAB NAVIGATION ────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── AES-256-GCM DECRYPT (same algorithm as index.html) ───────────
+async function deriveKey(password, salt){
+  const enc=new TextEncoder();
+  const km=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},
+    km,{name:'AES-GCM',length:256},false,['decrypt']
+  );
+}
+async function aesDecrypt(b64,password){
+  const combined=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+  const salt=combined.slice(0,16),iv=combined.slice(16,28),data=combined.slice(28);
+  const key=await deriveKey(password,salt);
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,data);
+  return new TextDecoder().decode(plain);
+}
+function makePassword(token){ return token.toUpperCase()+'_WK-MU-Pros-2568'; }
+
+// ── IMPORT ────────────────────────────────────────────────────────
+function onDrop(ev){
+  ev.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag');
+  processFiles([...ev.dataTransfer.files].filter(f=>f.name.endsWith('.json')));
+}
+function importFiles(ev){
+  processFiles([...ev.target.files]);
+  ev.target.value='';
+}
+
+function processFiles(files){
+  if(!files.length){showToast('ไม่พบไฟล์ JSON','error');return;}
+
+  // ตรวจว่ามี encrypted file ไหม — ถ้ามีต้องถามชุด tokens ก่อน
+  const readers = files.map(f=>new Promise(res=>{
+    const r=new FileReader();
+    r.onload=async e=>{
+      try{
+        const wrapper=JSON.parse(e.target.result);
+        let data;
+
+        if(wrapper._wk && wrapper._enc==='AES-256-GCM'){
+          // Encrypted — ต้องหา token ที่ตรง
+          const token = await promptTokenForFile(f.name, wrapper._rid);
+          if(!token){res(null);return;}
+          try{
+            const plain=await aesDecrypt(wrapper.data, makePassword(token));
+            data=JSON.parse(plain);
+          }catch{
+            showToast(`🔐 ถอดรหัสไม่ได้: ${f.name} — Token ไม่ถูกต้อง`,'error');
+            res(null);return;
+          }
+        } else {
+          // Plain JSON (legacy)
+          data=wrapper;
+        }
+
+        data.__filename__=f.name;
+        const existingIds=new Set(patients.map(p=>p.__filename__));
+        if(existingIds.has(f.name)){res(null);return;}
+        patients.push(data);
+        res(data);
+      }catch(err){showToast(`Error: ${f.name}`,'error');res(null);}
+    };
+    r.readAsText(f);
+  }));
+
+  Promise.all(readers).then(results=>{
+    const added=results.filter(Boolean).length;
+    saveToStorage();
+    renderAll();
+    document.getElementById('lastImport').textContent=`Last import: ${new Date().toLocaleTimeString()}`;
+    showToast(`✓ เพิ่ม ${added} ราย`,'success');
+  });
+}
+
+// Token lookup cache สำหรับ session นี้
+const tokenCache = {};
+
+async function promptTokenForFile(filename, rid){
+  // ถ้ามี cache แล้ว ใช้เลย
+  const cacheKey = rid || filename;
+  if(tokenCache[cacheKey]) return tokenCache[cacheKey];
+
+  // แสดง dialog ถามหา token
+  const token = prompt(
+    `ไฟล์ "${filename}" ถูก Encrypted\nResearch ID: ${rid||'(ไม่ระบุ)'}\n\nกรอก Token ของนักศึกษาที่ Export ไฟล์นี้:`,
+    ''
+  );
+  if(!token || !token.trim()) return null;
+  const t = token.trim().toUpperCase();
+  tokenCache[cacheKey] = t;
+  return t;
+}
+
+
+// ── RENDER ALL TABS ───────────────────────────────────────────────
+function renderAll(){
+  updateStats();
+  renderOverview();
+  renderDemo();
+  renderMedical();
+  renderIntraoral();
+  renderOcclusal();
+  renderDental();
+  renderPerio();
+  renderDiagnosis();
+  renderTreatment();
+  renderTeeth();
+}
+
+function updateStats(){
+  document.getElementById('statTotal').textContent = patients.length;
+  document.getElementById('statFiles').textContent = patients.length;
+  const studs = new Set(patients.map(p=>g(p,'i_studentName')).filter(Boolean));
+  document.getElementById('statStudents').textContent = studs.size||'—';
+  // Most common PDI complete
+  const pdiCounts={};
+  patients.forEach(p=>{const v=gr(p,'h_pdiComplete');if(v){pdiCounts[v]=(pdiCounts[v]||0)+1;}});
+  const topPDI = Object.entries(pdiCounts).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('statPDI1').textContent = topPDI?`Class ${topPDI[0]} (${topPDI[1]})`:'—';
+}
+
+function mkTr(cells){
+  return '<tr>'+cells.map(c=>`<td title="${String(c).replace(/"/g,'&quot;')}">${c==null||c===''?'<span style="color:var(--n400)">—</span>':c}</td>`).join('')+'</tr>';
+}
+function setBody(id, rows){
+  const el=document.getElementById(id);
+  el.innerHTML = rows.length ? rows.join('') : `<tr><td colspan="99" class="empty">ยังไม่มีข้อมูล</td></tr>`;
+}
+
+function renderOverview(){
+  setBody('bodyOverview', patients.map((d,i)=>mkTr([
+    i+1, rid(d), g(d,'a_patientName'), g(d,'a_age'), g(d,'a_sex'),
+    g(d,'a_date'), g(d,'b_chiefComplaint').slice(0,40)+'...',
+    gr(d,'h_pdiComplete'), gr(d,'h_pdiPartial'), gr(d,'h_pdiDentate'),
+    g(d,'i_studentName'), d.__filename__
+  ])));
+}
+
+function renderDemo(){
+  setBody('bodyDemo', patients.map(d=>mkTr([
+    rid(d), g(d,'a_ptNo'), g(d,'a_hn'), g(d,'a_dob'), g(d,'a_age'), g(d,'a_sex'),
+    g(d,'a_occupation'), g(d,'a_religion'), g(d,'a_race'), g(d,'a_nationality'),
+    g(d,'a_marital'), g(d,'a_paySource'), gr(d,'a_premed'),
+    g(d,'a_bp'), g(d,'a_pulse'), g(d,'a_weight'), g(d,'a_height')
+  ])));
+}
+
+function renderMedical(){
+  setBody('bodyMedical', patients.map(d=>mkTr([
+    rid(d), g(d,'b_chronicDiseases'), g(d,'b_majorIllness'), g(d,'b_medications'),
+    g(d,'b_allergies'), g(d,'b_familyHistory'),
+    g(d,'b_ros_cardio'), g(d,'b_ros_hemato'), g(d,'b_ros_endo'), g(d,'b_ros_neuro'),
+    g(d,'b_ros_gi'), g(d,'b_ros_pulm'), g(d,'b_ros_psych'), g(d,'b_ros_urinary'),
+    gr(d,'b_medConsult'),
+    gc(d,[['b_faceSym','Symmetry'],['b_faceMidLeft','Mid-Left'],['b_faceMidRight','Mid-Right']]),
+    gc(d,[['b_profStraight','Straight'],['b_profConvex','Convex'],['b_profConcave','Concave']])
+  ])));
+}
+
+function renderIntraoral(){
+  setBody('bodyIntraoral', patients.map(d=>mkTr([
+    rid(d), gr(d,'c_oralHygiene'),
+    gc(d,[['c_maxStNormal','Normal'],['c_maxStDentStom','DentStom'],['c_maxStOthers','Others']]),
+    gc(d,[['c_maxFlabNone','None'],['c_maxFlabAnt','Ant'],['c_maxFlabPost','Post']]),
+    gc(d,[['c_maxArchTaper','Taper'],['c_maxArchOvoid','Ovoid'],['c_maxArchSquare','Square']]),
+    gc(d,[['c_maxVaultAvg','Avg'],['c_maxVaultFlat','Flat'],['c_maxVaultHigh','High'],['c_maxVaultVshaped','V']]),
+    gc(d,[['c_maxRidgeBroad','Broad'],['c_maxRidgeNarrow','Narrow'],['c_maxRidgeFlat','Flat'],['c_maxRidgeKnife','Knife'],['c_maxRidgeBulbous','Bulbous']]),
+    gc(d,[['c_maxDbaAvg','Avg'],['c_maxDbaSmall','Small'],['c_maxDbaLarge','Large']]),
+    gc(d,[['c_maxUndNone','None'],['c_maxUndAnt','Ant'],['c_maxUndPost','Post'],['c_maxUndUni','Uni'],['c_maxUndBilat','Bilat']]),
+    gc(d,[['c_maxExoNone','None'],['c_maxExoPresent','Present']]),
+    gc(d,[['c_maxTorusNone','None'],['c_maxTorusPresent','Present']]),
+    gc(d,[['c_mandStNormal','Normal'],['c_mandStDentStom','DentStom'],['c_mandStOthers','Others']]),
+    gc(d,[['c_mandFlabNone','None'],['c_mandFlabAnt','Ant'],['c_mandFlabPost','Post']]),
+    gc(d,[['c_mandArchTaper','Taper'],['c_mandArchOvoid','Ovoid'],['c_mandArchSquare','Square']]),
+    gc(d,[['c_mandRidgeBroad','Broad'],['c_mandRidgeNarrow','Narrow'],['c_mandRidgeFlat','Flat'],['c_mandRidgeKnife','Knife'],['c_mandRidgeBulbous','Bulbous']]),
+    gr(d,'c_mandBoneHt'),
+    gc(d,[['c_mandDbaAvg','Avg'],['c_mandDbaSmall','Small'],['c_mandDbaLarge','Large']]),
+    gc(d,[['c_mandUndNone','None'],['c_mandUndAnt','Ant'],['c_mandUndPost','Post'],['c_mandUndUni','Uni'],['c_mandUndBilat','Bilat']]),
+    gc(d,[['c_mandExoNone','None'],['c_mandExoPresent','Present']]),
+    gc(d,[['c_mandTorusNone','None'],['c_mandTorusPresent','Present']]),
+    gr(d,'c_ridgeRel'), gr(d,'c_interRidge'), gr(d,'c_tongueSize'),
+    gr(d,'c_saliva'), gr(d,'c_gagReflex'), gr(d,'c_mentalAtt')
+  ])));
+}
+
+function renderOcclusal(){
+  setBody('bodyOcclusal', patients.map(d=>mkTr([
+    rid(d), g(d,'d_maxMidlineMm'), g(d,'d_mandMidlineMm'),
+    g(d,'d_overbite'), g(d,'d_overjet'), gr(d,'d_angles'),
+    gc(d,[['d_openNone','None'],['d_openAnt','Ant'],['d_openPost','Post'],['d_openRight','R'],['d_openLeft','L']]),
+    gc(d,[['d_crossNone','None'],['d_crossAnt','Ant'],['d_crossPost','Post'],['d_crossRight','R'],['d_crossLeft','L']]),
+    gr(d,'d_occSchemeR'), gr(d,'d_occSchemeL'),
+    g(d,'d_rcpSlide'), g(d,'d_rcpLateral')
+  ])));
+}
+
+function renderDental(){
+  setBody('bodyDental', patients.map(d=>mkTr([
+    rid(d),
+    g(d,'e_psr1'), g(d,'e_psr2'), g(d,'e_psr3'),
+    g(d,'e_psr4'), g(d,'e_psr5'), g(d,'e_psr6'),
+    g(d,'e_cariesRisk'), g(d,'e_dentalNotes'),
+    g(d,'g_boneLevel'), g(d,'g_boneLossPattern')
+  ])));
+}
+
+function renderPerio(){
+  setBody('bodyPerio', patients.map(d=>{
+    const p=periSummary(d);
+    return mkTr([
+      rid(d), g(d,'a_age'), g(d,'a_sex'),
+      p.bop, p.mean, p.max, p.gt4, p.n,
+      g(d,'e_psr1'), g(d,'e_psr2'), g(d,'e_psr3'),
+      g(d,'e_psr4'), g(d,'e_psr5'), g(d,'e_psr6'),
+      g(d,'h_perioDx')
+    ]);
+  }));
+}
+
+function renderDiagnosis(){
+  setBody('bodyDiagnosis', patients.map(d=>mkTr([
+    rid(d), g(d,'h_etiology'), g(d,'h_extraoralDx'), g(d,'h_intraoralDx'),
+    g(d,'h_dentalDx'), g(d,'h_perioDx'), g(d,'h_problemSynopsis'),
+    g(d,'h_preprosthetic'),
+    gr(d,'h_pdiComplete'), gr(d,'h_pdiPartial'), gr(d,'h_pdiDentate')
+  ])));
+}
+
+function renderTreatment(){
+  setBody('bodyTreatment', patients.map(d=>mkTr([
+    rid(d), g(d,'i_approxVisits'), g(d,'i_totalFee'),
+    g(d,'i_studentName'), g(d,'i_instructorName'), g(d,'a_date')
+  ])));
+}
+
+function renderTeeth(){
+  // Build header once
+  const hdr = document.getElementById('teethHdr');
+  if(!hdr.children.length){
+    hdr.innerHTML = '<th>Research_ID</th><th>Patient_Name</th>'+
+      ALL_TEETH.map(t=>`<th>T${t}</th>`).join('');
+  }
+  setBody('bodyTeeth', patients.map(d=>mkTr([
+    rid(d), g(d,'a_patientName'),
+    ...ALL_TEETH.map(t=>toothStatus(d,t))
+  ])));
+}
+
+// ── EXPORT CSV ────────────────────────────────────────────────────
+function exportCSV(){
+  if(!patients.length){showToast('ไม่มีข้อมูล — กรุณา Import JSON ก่อน','error');return;}
+
+  const rows=[];
+  const headers=[
+    'Research_ID','File_Name','Export_DateTime',
+    // A
+    'PT_No','HN','Patient_Name','Date_Record','DOB','Age','Gender',
+    'Occupation','Religion','Race','Nationality','Marital','Tel_Mobile',
+    'Pay_Source','Premed_Required','BP','Pulse','Weight_kg','Height_cm',
+    // B
+    'Chronic_Diseases','Major_Illness','Medications','Allergies','Family_History',
+    'ROS_Cardio','ROS_Hemato','ROS_Endo','ROS_Neuro','ROS_GI','ROS_Pulm',
+    'ROS_Genital','ROS_Psych','ROS_Urinary','Med_Consult',
+    'Facial_Appearance','Facial_Profile','Chief_Complaint','HPI',
+    // C
+    'Oral_Hygiene',
+    'Max_SoftTissue','Max_Flabby','Max_Frenum','Max_ArchForm','Max_Vault',
+    'Max_RidgeShape','Max_DBA','Max_Undercut','Max_Exostosis','Max_Torus',
+    'Mand_SoftTissue','Mand_Flabby','Mand_Frenum','Mand_ArchForm',
+    'Mand_RidgeShape','Mand_BoneHeight','Mand_DBA','Mand_Undercut','Mand_Exostosis','Mand_Torus',
+    'Ridge_Relationship','Inter_Ridge_Space','Tongue_Size','Saliva','Gag_Reflex','Mental_Attitude',
+    // D
+    'Max_Midline_mm','Mand_Midline_mm','Vertical_Overlap_mm','Horizontal_Overlap_mm',
+    'Angles_Class','Open_Bite','Crossbite','Occ_Scheme_R','Occ_Scheme_L',
+    'RCP_ICP_AP_mm','RCP_ICP_Lat_mm',
+    // E
+    'PSR_UR','PSR_UA','PSR_UL','PSR_LR','PSR_LA','PSR_LL','Caries_Risk','Dental_Notes',
+    // F perio summary
+    'Perio_BOP_pct','Perio_Mean_PD_mm','Perio_Max_PD_mm','Perio_Sites_gt4mm_pct','Perio_Sites_n',
+    // G
+    'Radio_Bone_Level','Radio_Bone_Pattern','Radio_Notes',
+    // H
+    'Etiology','Dx_Extraoral','Dx_Intraoral','Dx_Dental','Perio_Dx',
+    'Problem_Synopsis','Preprosthetic_Tx','PDI_Complete','PDI_Partial','PDI_Dentate',
+    // I
+    'Approx_Visits','Approx_Fee_Baht','Student_Name','Instructor_Name',
+    // Teeth
+    ...ALL_TEETH.map(t=>'T'+t)
+  ];
+
+  rows.push(headers);
+
+  patients.forEach(d=>{
+    const p=periSummary(d);
+    rows.push([
+      rid(d), d.__filename__||'', g(d,'_savedAt'),
+      g(d,'a_ptNo'), g(d,'a_hn'), g(d,'a_patientName'), g(d,'a_date'), g(d,'a_dob'),
+      g(d,'a_age'), g(d,'a_sex'), g(d,'a_occupation'), g(d,'a_religion'),
+      g(d,'a_race'), g(d,'a_nationality'), g(d,'a_marital'), g(d,'a_telMobile'),
+      g(d,'a_paySource'), gr(d,'a_premed'),
+      g(d,'a_bp'), g(d,'a_pulse'), g(d,'a_weight'), g(d,'a_height'),
+      g(d,'b_chronicDiseases'), g(d,'b_majorIllness'), g(d,'b_medications'),
+      g(d,'b_allergies'), g(d,'b_familyHistory'),
+      g(d,'b_ros_cardio'), g(d,'b_ros_hemato'), g(d,'b_ros_endo'), g(d,'b_ros_neuro'),
+      g(d,'b_ros_gi'), g(d,'b_ros_pulm'), g(d,'b_ros_genital'), g(d,'b_ros_psych'), g(d,'b_ros_urinary'),
+      gr(d,'b_medConsult'),
+      gc(d,[['b_faceSym','Symmetry'],['b_faceMidLeft','Mid-Left'],['b_faceMidRight','Mid-Right']]),
+      gc(d,[['b_profStraight','Straight'],['b_profConvex','Convex'],['b_profConcave','Concave']]),
+      g(d,'b_chiefComplaint'), g(d,'b_hpi'),
+      gr(d,'c_oralHygiene'),
+      gc(d,[['c_maxStNormal','Normal'],['c_maxStDentStom','DentStom'],['c_maxStOthers','Others']]),
+      gc(d,[['c_maxFlabNone','None'],['c_maxFlabAnt','Ant'],['c_maxFlabPost','Post']]),
+      gc(d,[['c_maxFrenNormal','Normal'],['c_maxFrenHigh','High'],['c_maxFrenLabial','Labial'],['c_maxFrenBuccal','Buccal']]),
+      gc(d,[['c_maxArchTaper','Taper'],['c_maxArchOvoid','Ovoid'],['c_maxArchSquare','Square']]),
+      gc(d,[['c_maxVaultAvg','Avg'],['c_maxVaultFlat','Flat'],['c_maxVaultHigh','High'],['c_maxVaultVshaped','V']]),
+      gc(d,[['c_maxRidgeBroad','Broad'],['c_maxRidgeNarrow','Narrow'],['c_maxRidgeFlat','Flat'],['c_maxRidgeKnife','Knife'],['c_maxRidgeBulbous','Bulbous']]),
+      gc(d,[['c_maxDbaAvg','Avg'],['c_maxDbaSmall','Small'],['c_maxDbaLarge','Large']]),
+      gc(d,[['c_maxUndNone','None'],['c_maxUndAnt','Ant'],['c_maxUndPost','Post'],['c_maxUndUni','Uni'],['c_maxUndBilat','Bilat']]),
+      gc(d,[['c_maxExoNone','None'],['c_maxExoPresent','Present']]),
+      gc(d,[['c_maxTorusNone','None'],['c_maxTorusPresent','Present']]),
+      gc(d,[['c_mandStNormal','Normal'],['c_mandStDentStom','DentStom'],['c_mandStOthers','Others']]),
+      gc(d,[['c_mandFlabNone','None'],['c_mandFlabAnt','Ant'],['c_mandFlabPost','Post']]),
+      gc(d,[['c_mandFrenNormal','Normal'],['c_mandFrenHigh','High'],['c_mandFrenLabial','Labial'],['c_mandFrenBuccal','Buccal']]),
+      gc(d,[['c_mandArchTaper','Taper'],['c_mandArchOvoid','Ovoid'],['c_mandArchSquare','Square']]),
+      gc(d,[['c_mandRidgeBroad','Broad'],['c_mandRidgeNarrow','Narrow'],['c_mandRidgeFlat','Flat'],['c_mandRidgeKnife','Knife'],['c_mandRidgeBulbous','Bulbous']]),
+      gr(d,'c_mandBoneHt'),
+      gc(d,[['c_mandDbaAvg','Avg'],['c_mandDbaSmall','Small'],['c_mandDbaLarge','Large']]),
+      gc(d,[['c_mandUndNone','None'],['c_mandUndAnt','Ant'],['c_mandUndPost','Post'],['c_mandUndUni','Uni'],['c_mandUndBilat','Bilat']]),
+      gc(d,[['c_mandExoNone','None'],['c_mandExoPresent','Present']]),
+      gc(d,[['c_mandTorusNone','None'],['c_mandTorusPresent','Present']]),
+      gr(d,'c_ridgeRel'), gr(d,'c_interRidge'), gr(d,'c_tongueSize'),
+      gr(d,'c_saliva'), gr(d,'c_gagReflex'), gr(d,'c_mentalAtt'),
+      g(d,'d_maxMidlineMm'), g(d,'d_mandMidlineMm'),
+      g(d,'d_overbite'), g(d,'d_overjet'), gr(d,'d_angles'),
+      gc(d,[['d_openNone','None'],['d_openAnt','Ant'],['d_openPost','Post'],['d_openRight','R'],['d_openLeft','L']]),
+      gc(d,[['d_crossNone','None'],['d_crossAnt','Ant'],['d_crossPost','Post'],['d_crossRight','R'],['d_crossLeft','L']]),
+      gr(d,'d_occSchemeR'), gr(d,'d_occSchemeL'),
+      g(d,'d_rcpSlide'), g(d,'d_rcpLateral'),
+      g(d,'e_psr1'), g(d,'e_psr2'), g(d,'e_psr3'),
+      g(d,'e_psr4'), g(d,'e_psr5'), g(d,'e_psr6'),
+      g(d,'e_cariesRisk'), g(d,'e_dentalNotes'),
+      p.bop, p.mean, p.max, p.gt4, p.n,
+      g(d,'g_boneLevel'), g(d,'g_boneLossPattern'), g(d,'g_radioNotes'),
+      g(d,'h_etiology'), g(d,'h_extraoralDx'), g(d,'h_intraoralDx'),
+      g(d,'h_dentalDx'), g(d,'h_perioDx'), g(d,'h_problemSynopsis'),
+      g(d,'h_preprosthetic'),
+      gr(d,'h_pdiComplete'), gr(d,'h_pdiPartial'), gr(d,'h_pdiDentate'),
+      g(d,'i_approxVisits'), g(d,'i_totalFee'),
+      g(d,'i_studentName'), g(d,'i_instructorName'),
+      ...ALL_TEETH.map(t=>toothStatus(d,t))
+    ]);
+  });
+
+  // Encode CSV with BOM for Excel Thai support
+  const csvStr = rows.map(r=>
+    r.map(v=>{
+      const s=String(v==null?'':v).replace(/"/g,'""');
+      return /[,"\n]/.test(s)?`"${s}"`:s;
+    }).join(',')
+  ).join('\r\n');
+
+  const blob=new Blob(['\ufeff'+csvStr,{type:'text/csv;charset=utf-8'}]);
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`ResearchData_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast(`✓ Export CSV สำเร็จ — ${patients.length} คนไข้`, 'success');
+}
+
+// ── CLEAR ALL ─────────────────────────────────────────────────────
+function clearAll(){
+  if(!confirm(`ลบข้อมูลคนไข้ทั้งหมด ${patients.length} ราย?\nไม่สามารถเรียกคืนได้`))return;
+  patients=[];
+  localStorage.removeItem(STORAGE_KEY);
+  renderAll();
+  showToast('ล้างข้อมูลทั้งหมดแล้ว','info');
+}
+
+// ── PERSIST ───────────────────────────────────────────────────────
+function saveToStorage(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(patients)); }
+  catch(e){ showToast('localStorage เต็ม — ข้อมูลจะหายเมื่อปิด browser','error'); }
+}
+function loadFromStorage(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){ patients=JSON.parse(raw); renderAll();
+      showToast(`โหลดข้อมูล ${patients.length} รายจาก storage','info`); }
+  }catch(e){}
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type='info'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+type;
+  setTimeout(()=>t.classList.add('show'),10);
+  setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+loadFromStorage();
+</script>
+</body>
+</html>
