@@ -6,6 +6,7 @@
 <title>WK Patient Data Collection: Html Standalone for Students</title>
 <meta name="description" content="Comprehensive dental patient assessment form covering demographics, medical history, intraoral examination, periodontal charting, treatment planning, and informed consent.">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 /* ═══════════════════════════════════════════════════════════════
@@ -101,6 +102,29 @@ a{color:var(--pri-500);text-decoration:none}
 .btn-clear:hover{background:rgba(239,68,68,.4);transform:translateY(-1px)}
 .btn-excel{background:rgba(34,197,94,.25);color:#bbf7d0;border:1px solid rgba(34,197,94,.4)!important}
 .btn-excel:hover{background:rgba(34,197,94,.45);color:#fff;transform:translateY(-1px)}
+/* Image upload */
+.img-drop-zone{
+  border:2px dashed var(--n-300);border-radius:var(--r-md);
+  padding:24px;text-align:center;cursor:pointer;
+  background:var(--n-50);transition:all .2s;min-height:100px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.img-drop-zone:hover,.img-drop-zone.drag{border-color:var(--pri-400);background:var(--pri-l)}
+.img-preview-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
+  gap:8px;margin-top:10px;
+}
+.img-thumb{
+  position:relative;border-radius:var(--r-sm);overflow:hidden;
+  aspect-ratio:1;background:var(--n-100);
+}
+.img-thumb img{width:100%;height:100%;object-fit:cover}
+.img-thumb-del{
+  position:absolute;top:2px;right:2px;
+  background:rgba(0,0,0,.6);color:#fff;border:none;
+  border-radius:50%;width:20px;height:20px;font-size:12px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
 /* Research ID banner */
 .research-id-bar{
   background:linear-gradient(90deg,var(--acc-600),var(--acc-500));
@@ -482,12 +506,19 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 <!-- ═══════════════════════ STUDENT INFO BAR (shown after login) ═══════════════════════ -->
 <div id="studentBar" style="
   display:none;background:#075f5f;color:#fff;
-  padding:6px 24px;font-size:12px;
-  display:none;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:8px 24px;font-size:12px;
+  align-items:center;gap:16px;flex-wrap:wrap;
 ">
   <span>👤 <strong id="barStudentId"></strong></span>
   <span>🔬 Research IDs: <strong id="barResearchIds"></strong></span>
-  <span style="margin-left:auto;opacity:.7;font-size:11px" id="barTokenId"></span>
+  <span style="margin-left:auto;opacity:.8;font-size:11px" id="barTokenId"></span>
+  <button onclick="logoutSession()" style="
+    background:#e11d48;color:#fff;border:none;padding:5px 14px;
+    border-radius:12px;cursor:pointer;font-weight:600;font-size:11px;
+    font-family:inherit;transition:background 0.2s;
+  " onmouseover="this.style.background='#be123c'" onmouseout="this.style.background='#e11d48'">
+    ออกจากระบบ (Logout)
+  </button>
 </div>
 
 <!-- ═══════════════════════════════════════ HEADER ═══════════════════════════════════════ -->
@@ -517,6 +548,10 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <button class="btn-clear" onclick="clearAll()" title="Clear all form data">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
         Clear
+      </button>
+      <button style="background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.3);display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r-full);border:none;cursor:pointer;font-family:var(--ff);font-size:var(--fs-xs);font-weight:600;" onclick="logoutSession()" title="ออกจากระบบ">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Logout
       </button>
       <input type="file" id="fileImport" accept=".json" onchange="importJSON(event)">
     </div>
@@ -1708,6 +1743,57 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     </div>
   </div>
 
+  <!-- IMAGE UPLOAD — Radiographic & Clinical Photos -->
+  <div class="card">
+    <div class="card-title">
+      <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+      Radiographic &amp; Clinical Photos
+    </div>
+    <p style="font-size:var(--fs-sm);color:var(--n-500);margin-bottom:12px">
+      อัพโหลดภาพรังสีและภาพถ่ายทางคลินิก (JPEG/PNG) · แต่ละภาพไม่เกิน 2MB · ภาพจะถูก export แยกเป็น ZIP
+    </p>
+
+    <!-- Upload zones -->
+    <div class="form-grid cols-2" style="margin-bottom:16px">
+      <div>
+        <label style="font-size:var(--fs-xs);font-weight:700;color:var(--n-700);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:8px">ภาพรังสี (Radiographic)</label>
+        <div class="img-drop-zone" id="radioDropZone" onclick="document.getElementById('radioFileInput').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="handleImgDrop(event,'radio')">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="var(--n-300)"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6l3-4 2 2.5 3-3.5 4 5z"/></svg>
+          <p style="margin:8px 0 0;font-size:var(--fs-sm);color:var(--n-400)">คลิกหรือลากภาพมาวาง</p>
+          <input type="file" id="radioFileInput" accept="image/jpeg,image/png" multiple style="display:none" onchange="handleImgSelect(event,'radio')">
+        </div>
+        <div id="radioPreview" class="img-preview-grid"></div>
+      </div>
+      <div>
+        <label style="font-size:var(--fs-xs);font-weight:700;color:var(--n-700);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:8px">ภาพถ่ายทางคลินิก (Clinical Photos)</label>
+        <div class="img-drop-zone" id="clinicDropZone" onclick="document.getElementById('clinicFileInput').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="handleImgDrop(event,'clinic')">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="var(--n-300)"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          <p style="margin:8px 0 0;font-size:var(--fs-sm);color:var(--n-400)">คลิกหรือลากภาพมาวาง</p>
+          <input type="file" id="clinicFileInput" accept="image/jpeg,image/png" multiple style="display:none" onchange="handleImgSelect(event,'clinic')">
+        </div>
+        <div id="clinicPreview" class="img-preview-grid"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <button onclick="exportPhotosZip()" style="
+        display:inline-flex;align-items:center;gap:6px;
+        padding:9px 18px;background:#0a7e7e;color:#fff;
+        border:none;border-radius:var(--r-full);font-size:var(--fs-sm);
+        font-weight:600;cursor:pointer;
+      ">
+        ↓ Export Photos (ZIP)
+      </button>
+      <span id="photoSizeInfo" style="font-size:var(--fs-xs);color:var(--n-500)"></span>
+    </div>
+  </div>
+
 </section>
 
 <!-- ░░░░░░░░░░░░░ PAGE H — Diagnosis & Prognosis ░░░░░░░░░░░░░ -->
@@ -2828,8 +2914,101 @@ function clearAll() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TOAST
+   IMAGE UPLOAD — Radiographic & Clinical Photos
    ═══════════════════════════════════════════════════════════════ */
+const photoStore = { radio: [], clinic: [] };
+const MAX_IMG_MB = 2;
+
+function handleImgSelect(event, type) {
+  const files = [...event.target.files];
+  event.target.value = '';
+  processImgFiles(files, type);
+}
+
+function handleImgDrop(event, type) {
+  event.preventDefault();
+  document.getElementById(type === 'radio' ? 'radioDropZone' : 'clinicDropZone').classList.remove('drag');
+  const files = [...event.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+  processImgFiles(files, type);
+}
+
+function processImgFiles(files, type) {
+  files.forEach(file => {
+    if (file.size > MAX_IMG_MB * 1024 * 1024) {
+      showToast(`⚠ ${file.name} ใหญ่เกิน ${MAX_IMG_MB}MB — ข้ามไฟล์นี้`, 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const entry = { name: file.name, data: e.target.result, type: file.type };
+      photoStore[type].push(entry);
+      renderPhotoPreview(type);
+      updatePhotoSizeInfo();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderPhotoPreview(type) {
+  const grid = document.getElementById(type + 'Preview');
+  grid.innerHTML = '';
+  photoStore[type].forEach((img, idx) => {
+    const div = document.createElement('div');
+    div.className = 'img-thumb';
+    div.innerHTML = `<img src="${img.data}" title="${img.name}">
+      <button class="img-thumb-del" onclick="removePhoto('${type}',${idx})">✕</button>`;
+    grid.appendChild(div);
+  });
+}
+
+function removePhoto(type, idx) {
+  photoStore[type].splice(idx, 1);
+  renderPhotoPreview(type);
+  updatePhotoSizeInfo();
+}
+
+function updatePhotoSizeInfo() {
+  const total = [...photoStore.radio, ...photoStore.clinic]
+    .reduce((s, img) => s + img.data.length * 0.75, 0);
+  const mb = (total / 1024 / 1024).toFixed(1);
+  const count = photoStore.radio.length + photoStore.clinic.length;
+  document.getElementById('photoSizeInfo').textContent =
+    count ? `${count} ภาพ · ขนาดรวม ~${mb} MB` : '';
+}
+
+async function exportPhotosZip() {
+  const total = photoStore.radio.length + photoStore.clinic.length;
+  if (!total) { showToast('⚠ ยังไม่มีภาพ — กรุณาอัพโหลดก่อน', 'error'); return; }
+
+  const rid = (document.getElementById('researchId') || {}).value ||
+              (document.getElementById('a_researchId') || {}).value || 'NoID';
+  const dateStr = new Date().toISOString().slice(0, 10);
+
+  const zip = new JSZip();
+  const radioFolder  = zip.folder('radiographic');
+  const clinicFolder = zip.folder('clinical_photos');
+
+  photoStore.radio.forEach((img, i) => {
+    const base64 = img.data.split(',')[1];
+    const ext    = img.name.split('.').pop();
+    radioFolder.file(`radio_${String(i+1).padStart(2,'0')}_${img.name}`, base64, { base64: true });
+  });
+
+  photoStore.clinic.forEach((img, i) => {
+    const base64 = img.data.split(',')[1];
+    clinicFolder.file(`clinic_${String(i+1).padStart(2,'0')}_${img.name}`, base64, { base64: true });
+  });
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `Photos_${rid}_${dateStr}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`✓ Export ZIP สำเร็จ: Photos_${rid}_${dateStr}.zip`, 'success');
+}
+
 function showToast(msg, type = 'info') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -3204,19 +3383,66 @@ async function activateToken() {
       btn.disabled = false; btn.textContent = 'เข้าใช้งาน';
     }
   } catch (err) {
-    setTokenMsg('⚠ ไม่สามารถติดต่อ server ได้ — ตรวจสอบ internet แล้วลองใหม่', '#d97706');
-    btn.disabled = false; btn.textContent = 'เข้าใช้งาน';
+    // Local offline verification fallback
+    const localTokens = {
+      '4KDD-DQ77-QRXH-WHUF': { studentId: 'PT9-Piyapan', researchIds: ["MU-PT9-001", "MU-PT9-002", "MU-PT9-003", "MU-PT9-004", "MU-PT9-005", "MU-PT9-006"] },
+      'ZRVK-UNKA-36P2-8AZB': { studentId: 'PT9-Praiya', researchIds: ["MU-PT9-007", "MU-PT9-008", "MU-PT9-009", "MU-PT9-010", "MU-PT9-011", "MU-PT9-012"] },
+      'W758-SEKC-N6WK-YXE3': { studentId: 'PT9-Patcharapha', researchIds: ["MU-PT9-013", "MU-PT9-014", "MU-PT9-015", "MU-PT9-016", "MU-PT9-017", "MU-PT9-018"] },
+      'KJBY-6GNT-CJ6P-N793': { studentId: 'PT9-Pakamon', researchIds: ["MU-PT9-019", "MU-PT9-020", "MU-PT9-021", "MU-PT9-022", "MU-PT9-023", "MU-PT9-024"] },
+      'WY2N-5N4H-PGZ7-FSMM': { studentId: 'PT9-Pattaraporn', researchIds: ["MU-PT9-025", "MU-PT9-026", "MU-PT9-027", "MU-PT9-028", "MU-PT9-029", "MU-PT9-030"] },
+      'QZHF-S8WK-42SZ-VWAY': { studentId: 'PT9-Phurit', researchIds: ["MU-PT9-031", "MU-PT9-032", "MU-PT9-033", "MU-PT9-034", "MU-PT9-035", "MU-PT9-036"] },
+      'G732-D8JA-Y4WZ-3G9B': { studentId: 'PT9-Manisara', researchIds: ["MU-PT9-037", "MU-PT9-038", "MU-PT9-039", "MU-PT9-040", "MU-PT9-041", "MU-PT9-042"] },
+      'HQEE-CQST-C88F-K2NJ': { studentId: 'PT12-Siriyakorn', researchIds: ["MU-PT12-001", "MU-PT12-002", "MU-PT12-003", "MU-PT12-004", "MU-PT12-005", "MU-PT12-006"] },
+      '2JYD-L2VY-7YZ7-WMCB': { studentId: 'PT12-Siriyakan', researchIds: ["MU-PT12-007", "MU-PT12-008", "MU-PT12-009", "MU-PT12-010", "MU-PT12-011", "MU-PT12-012"] },
+      '54FR-PFGM-BAVV-AEQL': { studentId: 'PT12-Sunattha', researchIds: ["MU-PT12-013", "MU-PT12-014", "MU-PT12-015", "MU-PT12-016", "MU-PT12-017", "MU-PT12-018"] },
+      'E4BF-JURA-CZX6-R5PX': { studentId: 'PT12-Sutatta', researchIds: ["MU-PT12-019", "MU-PT12-020", "MU-PT12-021", "MU-PT12-022", "MU-PT12-023", "MU-PT12-024"] },
+      'T7GB-AJGR-RXHA-9CLH': { studentId: 'PT12-Supannika', researchIds: ["MU-PT12-025", "MU-PT12-026", "MU-PT12-027", "MU-PT12-028", "MU-PT12-029", "MU-PT12-030"] },
+      'KHL5-77B2-HG5L-82NF': { studentId: 'PT12-Supitchaya', researchIds: ["MU-PT12-031", "MU-PT12-032", "MU-PT12-033", "MU-PT12-034", "MU-PT12-035", "MU-PT12-036"] },
+      'K4V3-7Q32-BW5Z-PSN8': { studentId: 'PT12-Ayuthai', researchIds: ["MU-PT12-037", "MU-PT12-038", "MU-PT12-039", "MU-PT12-040", "MU-PT12-041", "MU-PT12-042"] }
+    };
+    const localData = localTokens[token];
+    if (localData) {
+      const session = {
+        token,
+        studentId:   localData.studentId,
+        researchIds: localData.researchIds,
+        activatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      unlockApp(session);
+    } else {
+      setTokenMsg('⚠ ไม่สามารถติดต่อ server ได้ — ตรวจสอบ internet แล้วลองใหม่', '#d97706');
+      btn.disabled = false; btn.textContent = 'เข้าใช้งาน';
+    }
   }
 }
 
 function unlockApp(session) {
+  // Thai name mapping
+  const nameMap = {
+    'PT9-Piyapan':     'ปิยพันธุ์',
+    'PT9-Praiya':      'ไปรยา',
+    'PT9-Patcharapha': 'พัชราภา',
+    'PT9-Pakamon':     'ภคมน',
+    'PT9-Pattaraporn': 'ภัทรภร',
+    'PT9-Phurit':      'ภูริต',
+    'PT9-Manisara':    'มณิสรา',
+    'PT12-Siriyakorn': 'สิริยากรณ์',
+    'PT12-Siriyakan':  'สิริยากร',
+    'PT12-Sunattha':   'สุณัฏฐา',
+    'PT12-Sutatta':    'สุทัตตา',
+    'PT12-Supannika':  'สุพรรณิกา',
+    'PT12-Supitchaya': 'สุพิชชญา',
+    'PT12-Ayuthai':    'อายุทัย',
+  };
+  const thaiName = nameMap[session.studentId] || session.studentId || '(ไม่ระบุ)';
   // ซ่อน token screen
   document.getElementById('tokenScreen').style.display = 'none';
 
   // แสดง student bar
   const bar = document.getElementById('studentBar');
   bar.style.display = 'flex';
-  document.getElementById('barStudentId').textContent    = session.studentId || '(ไม่ระบุ)';
+  document.getElementById('barStudentId').textContent    = thaiName;
   document.getElementById('barResearchIds').textContent  = (session.researchIds||[]).join(', ');
   document.getElementById('barTokenId').textContent      = 'Token: ' + session.token;
 
@@ -3227,6 +3453,18 @@ function unlockApp(session) {
     ridBar.value   = session.researchIds[0];
     if (ridField) ridField.value = session.researchIds[0];
   }
+}
+
+function logoutSession() {
+  if (!confirm('ออกจากระบบ?\nข้อมูลที่กรอกจะยังคงอยู่ แต่ต้องกรอก Token ใหม่เพื่อเข้าใช้งาน')) return;
+  localStorage.removeItem(SESSION_KEY);
+  // แสดง token screen อีกครั้ง
+  document.getElementById('tokenScreen').style.display = 'flex';
+  document.getElementById('studentBar').style.display = 'none';
+  document.getElementById('tokenInput').value = '';
+  document.getElementById('tokenMsg').textContent = '';
+  document.getElementById('tokenBtn').disabled = false;
+  document.getElementById('tokenBtn').textContent = 'เข้าใช้งาน';
 }
 
 function checkExistingSession() {
@@ -3241,6 +3479,22 @@ function checkExistingSession() {
   } catch { return false; }
 }
 </script>
+
+<!-- ═══════════════════════ STICKY FOOTER ═══════════════════════ -->
+<div style="
+  position:fixed;bottom:0;left:0;right:0;z-index:100000;
+  background:#ffffff;box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  color:#64748b;text-align:center;
+  padding:8px 16px;font-size:12px;letter-spacing:.02em;
+  border-top:1px solid #e2e8f0;
+  font-family:'Segoe UI',system-ui,sans-serif;
+">
+  Created by Widchaya Kanchanavasita · © 2026 Widchaya Kanchanavasita. All rights reserved.
+</div>
+
+<style>
+  body { padding-bottom: 40px !important; }
+</style>
 
 </body>
 </html>
