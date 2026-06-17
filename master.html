@@ -52,7 +52,7 @@ button{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:no
 .tab-btn:hover{color:var(--pri)}
 .tab-btn.active{color:var(--pri);font-weight:700;border-bottom-color:var(--pri)}
 /* CONTENT */
-.content{padding:0 24px 40px}
+.content{padding:0 24px 60px}
 .tab-panel{display:none;margin-top:16px}
 .tab-panel.active{display:block}
 /* TABLE */
@@ -273,6 +273,17 @@ tbody td:first-child{font-weight:700;color:var(--pri);white-space:nowrap}
 
 <div class="toast" id="toast"></div>
 
+<!-- STICKY FOOTER -->
+<div style="
+  position:fixed;bottom:0;left:0;right:0;z-index:9998;
+  background:rgba(10,78,78,0.95);backdrop-filter:blur(6px);
+  color:rgba(255,255,255,0.85);text-align:center;
+  padding:5px 16px;font-size:11px;letter-spacing:.03em;
+  border-top:1px solid rgba(255,255,255,0.15);
+">
+  Web form created by Widchaya Kanchanavasita &nbsp;|&nbsp; © 2026 Widchaya Kanchanavasita. All rights reserved.
+</div>
+
 <script>
 // ── STATE ─────────────────────────────────────────────────────────
 let patients = [];  // array of parsed JSON objects
@@ -340,7 +351,10 @@ async function aesDecrypt(b64,password){
   const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,data);
   return new TextDecoder().decode(plain);
 }
-function makePassword(token){ return token.toUpperCase()+'_WK-MU-Pros-2568'; }
+// Shared password — ต้องตรงกับค่าใน index.html (PASSWORD_HASH ใช้ตรวจ login เท่านั้น
+// ส่วนนี้ใช้ตัวรหัสผ่านจริงสำหรับ derive AES key โดยตรง — ตั้งค่าให้ตรงกับ index.html)
+const SHARED_PASSWORD = 'MU-Pros-2568'; // ⚠ ต้องตรงกับรหัสผ่านจริงที่ใช้ใน index.html
+function getDecryptPassword(){ return SHARED_PASSWORD + '_June2569!'; }
 
 // ── IMPORT ────────────────────────────────────────────────────────
 function onDrop(ev){
@@ -365,14 +379,12 @@ function processFiles(files){
         let data;
 
         if(wrapper._wk && wrapper._enc==='AES-256-GCM'){
-          // Encrypted — ต้องหา token ที่ตรง
-          const token = await promptTokenForFile(f.name, wrapper._rid);
-          if(!token){res(null);return;}
+          // Encrypted — ใช้ shared password decrypt อัตโนมัติ ไม่ต้องถามทีละไฟล์
           try{
-            const plain=await aesDecrypt(wrapper.data, makePassword(token));
+            const plain=await aesDecrypt(wrapper.data, getDecryptPassword());
             data=JSON.parse(plain);
           }catch{
-            showToast(`🔐 ถอดรหัสไม่ได้: ${f.name} — Token ไม่ถูกต้อง`,'error');
+            showToast(`🔐 ถอดรหัสไม่ได้: ${f.name} — รหัสผ่านไม่ตรงกับที่ Export ไว้`,'error');
             res(null);return;
           }
         } else {
@@ -399,24 +411,7 @@ function processFiles(files){
   });
 }
 
-// Token lookup cache สำหรับ session นี้
-const tokenCache = {};
 
-async function promptTokenForFile(filename, rid){
-  // ถ้ามี cache แล้ว ใช้เลย
-  const cacheKey = rid || filename;
-  if(tokenCache[cacheKey]) return tokenCache[cacheKey];
-
-  // แสดง dialog ถามหา token
-  const token = prompt(
-    `ไฟล์ "${filename}" ถูก Encrypted\nResearch ID: ${rid||'(ไม่ระบุ)'}\n\nกรอก Token ของนักศึกษาที่ Export ไฟล์นี้:`,
-    ''
-  );
-  if(!token || !token.trim()) return null;
-  const t = token.trim().toUpperCase();
-  tokenCache[cacheKey] = t;
-  return t;
-}
 
 
 // ── RENDER ALL TABS ───────────────────────────────────────────────
